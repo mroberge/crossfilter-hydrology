@@ -19,13 +19,7 @@
 
 <body>
 <h1>crossfilter-hydrology</h1>
-<p>I'm using this repo to try out the dc.js library.</p>
-<ul>
-    <li><a href="https://github.com/mroberge/crossfilter-hydrology">repo page</a></li>
-    <li><a href="filtertable.html">filtering example with a table</a></li>
-    <li><a href="filter.html">plain filtering example</a></li>
-    <li><a href="quake.html">earthquake example</a></li>
-</ul>
+<p>This page is based on <a href="http://dc-js.github.io/dc.js/examples/filtering.html">filtering.html</a> from the list of simple dc-js examples.</p>
 
 <div id="chart-ring-year" style="width:300px; height:300px">
     <div class="reset" style="visibility: hidden;">selected: <span class="filter"></span>
@@ -42,17 +36,6 @@
         <a href="javascript:spenderRowChart.filterAll();dc.redrawAll();">reset</a>
     </div>
 </div>
-<div id="chart-table">
-    <table class="table table-hover">
-        <thead>
-        <tr class="header">
-            <th>Year</th>
-            <th>Spent</th>
-            <th>Name</th>
-        </tr>
-        </thead>
-    </table>
-</div >
 
 <script>
     /*******************************************
@@ -82,7 +65,6 @@
     var yearRingChart   = dc.pieChart("#chart-ring-year");
     var spendHistChart  = dc.barChart("#chart-hist-spend");
     var spenderRowChart = dc.rowChart("#chart-row-spenders");
-    var dataTable = dc.dataTable("#chart-table");
 
     /************************************************
      * Step3: Put the data into crossfilter facts   *
@@ -124,19 +106,6 @@
             .elasticX(true)
             .controlsUseVisibility(true);
 
-    dataTable
-            .width(900)
-            .height(480)
-            //.margins({top: 10})//I guess tables don't have margins
-            .dimension(yearDim) //yearDim spendDim I don't see a difference
-            .group(function(d) { return "What is this group function for? Why return text?"})
-            .columns([
-                function (d) { return +d.Year; },
-                function (d) { return d.Spent; },
-                function (d) { return d.Name; }
-            ])
-            .sortBy(function (d) { return d.Year; })// or sort by d.Spent or d.Name
-            .order(d3.descending); //or ascending
     /*****************************
      * Step6: Render the Charts  *
      *****************************/

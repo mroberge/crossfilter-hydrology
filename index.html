@@ -26,24 +26,27 @@
     <li><a href="filter.html">plain filtering example</a></li>
     <li><a href="quake.html">earthquake example</a></li>
 </ul>
-
-<div id="chart-ring-year" style="width:300px; height:300px">
+<div class='dc-data-count'>
+    <span class='filter-count'></span>
+    selected out of <span class='total-count'></span> records.
+</div>
+<div id="chart-ring-state" style="width:300px; height:300px">
     <div class="reset" style="visibility: hidden;">selected: <span class="filter"></span>
-        <a href="javascript:yearRingChart.filterAll();dc.redrawAll();">reset</a>
+        <a href="javascript:stateRingChart.filterAll();dc.redrawAll();">reset</a>
     </div>
 </div>
-<div id="chart-hist-spend" style="width:300px; height:300px">
+<div id="chart-hist-drain" style="width:300px; height:300px">
     <div class="reset" style="visibility: hidden;">range: <span class="filter"></span>
-        <a href="javascript:spendHistChart.filterAll();dc.redrawAll();">reset</a>
+        <a href="javascript:drainHistChart.filterAll();dc.redrawAll();">reset</a>
     </div>
 </div>
 <div id="chart-row-spenders">
     <div class="reset" style="visibility: hidden;">selected: <span class="filter"></span>
-        <a href="javascript:spenderRowChart.filterAll();dc.redrawAll();">reset</a>
+        <a href="javascript:stateRowChart.filterAll();dc.redrawAll();">reset</a>
     </div>
 </div>
 <div id="chart-table">
-    <table class="table table-hover">
+    <table class="table">
         <thead>
         <tr class="header">
             <th>Year</th>
@@ -52,96 +55,110 @@
         </tr>
         </thead>
     </table>
-</div >
+</div>
 
 <script>
     /*******************************************
      * Step0: Load data from csv file *
      *******************************************/
-    // use static or load via d3.csv("spendData.csv", function(error, spendData) {/* do stuff */});
-    var spendData = [
-        {Name: 'Mr A', Spent: '$40', Year: 2011},
-        {Name: 'Mr B', Spent: '$10', Year: 2011},
-        {Name: 'Mr C', Spent: '$40', Year: 2011},
-        {Name: 'Mr A', Spent: '$70', Year: 2012},
-        {Name: 'Mr B', Spent: '$20', Year: 2012},
-        {Name: 'Mr B', Spent: '$50', Year: 2013},
-        {Name: 'Mr C', Spent: '$30', Year: 2013}
-    ];
+     d3.csv("conterm_basinid.csv", function (error, siteData) {
 
-    /**************************************************
-     * Step1: Data munging: type it, formating, etc.  *
-     **************************************************/
-    spendData.forEach(function(d) {
-        d.Spent = d.Spent.match(/\d+/);
+        /**************************************************
+         * Step1: Data munging: type it, formating, etc.  *
+         **************************************************/
+        siteData.forEach(function (d) {
+            d.DRAIN_SQKM = +d.DRAIN_SQKM;//coerce to number
+            d.LAT_GAGE = +d.LAT_GAGE;
+            d.LNG_GAGE = +d.LNG_GAGE;
+        });
+        console.log(siteData);
+
+        /*******************************************************
+         * Step2: Create the dc.js chart objects & link to div *
+         *******************************************************/
+        var totalCount = dc.dataCount('.dc-data-count');
+        var stateRingChart = dc.pieChart("#chart-ring-state");
+        var drainHistChart = dc.barChart("#chart-hist-drain");
+        var stateRowChart = dc.rowChart("#chart-row-spenders");
+        var dataTable = dc.dataTable("#chart-table");
+
+        /*********************************************************
+         * Step3: Have crossfilter create an index on the data   *
+         *********************************************************/
+        var ndx = crossfilter(siteData);
+
+        /****************************************************
+         * Step4: set up dimensions on the table of facts   *
+         ****************************************************/
+        //var idDim = ndx.dimension(function (d) {return d.STAID;});
+        //var nameDim = ndx.dimension(function (d) {return d.STANAME;});
+        var drainDim = ndx.dimension(function (d) {return +d.DRAIN_SQKM;});
+        var binwidth = 100;
+        var byDrainDim = ndx.dimension(function (d) {return binwidth * Math.floor(+d.DRAIN_SQKM/binwidth);}); //I needed some bins for a good histogram. I don't know if I need to make this a dimension.
+        //var latDim = ndx.dimension(function (d) {return +d.LAT_GAGE;});
+        var stateDim = ndx.dimension(function (d) {return d.STATE;});
+
+        var latPerState = stateDim.group().reduceSum(function (d) {return +d.LAT_GAGE;}); //it makes no sense to sum latitudes, but it is a number.
+        var drainPerState = stateDim.group().reduceSum(function (d) {return +d.DRAIN_SQKM;}); //add the drainage area for each state.
+        var drainHist = byDrainDim.group().reduceCount();  //number of sites per bin as found in byDrainDim
+        var countPerState = stateDim.group().reduceCount(); //number of sites per state
+
+        /**************************************
+         * Step5: Create the Visualisations   *
+         **************************************/
+        totalCount
+                .dimension(ndx)
+                .group(ndx.groupAll());
+
+        stateRingChart
+                .dimension(stateDim)
+                .group(latPerState)//.group(drainPerState)
+                .innerRadius(50)
+                .controlsUseVisibility(true);
+
+        drainHistChart
+                .dimension(drainDim)
+                .group(drainHist)
+                .x(d3.scale.linear().domain([0, 10000]))//maybe set to the max? use a log scale?
+                .elasticY(true)
+                .controlsUseVisibility(true);
+
+        drainHistChart.xAxis();
+        drainHistChart.yAxis().ticks(2);
+
+        stateRowChart
+                .height(1000)
+                .dimension(stateDim)
+                .group(countPerState)
+                .elasticX(true)
+                .controlsUseVisibility(true);
+
+        dataTable
+                .width(900)
+              //.height(480)
+              //.margins({top: 10})//I guess tables don't have margins
+                .dimension(stateDim) //yearDim spendDim I don't see a difference
+                .group(function (d) {return ""})
+                /*.columns([
+                    function (d) {return d.STAID;},
+                    function (d) {return d.STATE;},
+                    function (d) {return d.STANAME;}
+                ])*/
+                .columns(["STAID", "STATE", "DRAIN_SQKM", "STANAME", "COUNTYNAME_SITE"])//This creates a header row automatically using these attribute names.
+                .sortBy(function (d) {return d.GAGE_LAT;})// or sort by d.Spent or d.Name
+                .order(d3.descending); //or ascending
+
+        /*****************************
+         * Step6: Render the Charts  *
+         *****************************/
+        dc.renderAll();
     });
-
-    /*******************************************************
-     * Step2: Create the dc.js chart objects & link to div *
-     *******************************************************/
-    var yearRingChart   = dc.pieChart("#chart-ring-year");
-    var spendHistChart  = dc.barChart("#chart-hist-spend");
-    var spenderRowChart = dc.rowChart("#chart-row-spenders");
-    var dataTable = dc.dataTable("#chart-table");
-
-    /************************************************
-     * Step3: Put the data into crossfilter facts   *
-     ************************************************/
-    var ndx = crossfilter(spendData);
-
-    /****************************************************
-     * Step4: set up dimensions on the table of facts   *
-     ****************************************************/
-    var yearDim  = ndx.dimension(function(d) {return +d.Year;});
-    var spendDim = ndx.dimension(function(d) {return Math.floor(d.Spent/10);});
-    var nameDim  = ndx.dimension(function(d) {return d.Name;});
-
-    var spendPerYear = yearDim.group().reduceSum(function(d) {return +d.Spent;});
-    var spendPerName = nameDim.group().reduceSum(function(d) {return +d.Spent;});
-    var spendHist    = spendDim.group().reduceCount();
-    /**************************************
-     * Step5: Create the Visualisations   *
-     **************************************/
-    yearRingChart
-            .dimension(yearDim)
-            .group(spendPerYear)
-            .innerRadius(50)
-            .controlsUseVisibility(true);
-
-    spendHistChart
-            .dimension(spendDim)
-            .group(spendHist)
-            .x(d3.scale.linear().domain([0,10]))
-            .elasticY(true)
-            .controlsUseVisibility(true);
-
-    spendHistChart.xAxis().tickFormat(function(d) {return d*10}); // convert back to base unit
-    spendHistChart.yAxis().ticks(2);
-
-    spenderRowChart
-            .dimension(nameDim)
-            .group(spendPerName)
-            .elasticX(true)
-            .controlsUseVisibility(true);
-
-    dataTable
-            .width(900)
-            .height(480)
-            //.margins({top: 10})//I guess tables don't have margins
-            .dimension(yearDim) //yearDim spendDim I don't see a difference
-            .group(function(d) { return "What is this group function for? Why return text?"})
-            .columns([
-                function (d) { return +d.Year; },
-                function (d) { return d.Spent; },
-                function (d) { return d.Name; }
-            ])
-            .sortBy(function (d) { return d.Year; })// or sort by d.Spent or d.Name
-            .order(d3.descending); //or ascending
-    /*****************************
-     * Step6: Render the Charts  *
-     *****************************/
-    dc.renderAll();
-
+    //TODO: figure out how to format the table a little better.
+    //TODO: set up a bubbleOverlay for a map with sites.  Maybe. I don't know if it will work with Google Maps.
+    //TODO: use the entire GagesII table. But it is slow as it is. Maybe select the columns I like and make a table of that.
+    //TODO: There has to be a better way to set the bins for histograms.
+    //TODO: Maybe use http://jrideout.github.io/histogram-pretty/
+    //
 </script>
 
 </body>

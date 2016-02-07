@@ -5,5 +5,7 @@ Uses [D3](http://d3js.org/) and [crossfilter.js](http://square.github.io/crossfi
 
 Some pages:
 
+*   [index](http://mroberge.github.io/crossfilter-hydrology/) I worked the GagesII data into a page.
+*   [filtertable.html](http://mroberge.github.io/crossfilter-hydrology/filtertable.html) I added a table.
 *   [filtering.html](http://mroberge.github.io/crossfilter-hydrology/filter.html)
-*   [Earthquake plot](http://mroberge.github.io/crossfilter-hydrology/) from d3noob's [example](http://bl.ocks.org/d3noob/6584483)
+*   [Earthquake plot](http://mroberge.github.io/crossfilter-hydrology/quake.html) from d3noob's [example](http://bl.ocks.org/d3noob/6584483)
